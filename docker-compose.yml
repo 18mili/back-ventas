@@ -1,0 +1,53 @@
+version: '3.9'
+
+services:
+  db_ventas:
+    image: mysql:8.0
+    container_name: mysql_ventas
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_ventas_data:/var/lib/mysql
+    networks:
+      - backend_ventas_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend_ventas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: back_ventas
+    image: back-ventas:latest
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db_ventas:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SERVER_PORT: 8081
+    depends_on:
+      db_ventas:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend_ventas_network
+
+volumes:
+  mysql_ventas_data:
+    driver: local
+
+networks:
+  backend_ventas_network:
+    driver: bridge
